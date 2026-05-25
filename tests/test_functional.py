@@ -145,3 +145,89 @@ def test_transfer_valid_with_tenant_agreement():
     is_valid = manager.check_transfers_tenant()
     assert is_valid == False
 
+def test_generate_apartment_events_report_coverage():
+    import pytest
+    from src.manager import Manager
+    from src.models import Parameters, Apartment, ApartmentEvent
+    
+    manager = Manager(Parameters())
+    
+    manager.apartments = {
+        'A1': Apartment(key='A1', name='Test', location='Test', area_m2=50.0, rooms={})
+    }
+    
+    manager.apartment_events = [
+        ApartmentEvent(date='2026-05-01', apartment='A1', description='Kran cieknie', solved=False),
+        ApartmentEvent(date='2026-05-02', apartment='A1', description='Zarowka', solved=True),
+        ApartmentEvent(date='2026-05-03', apartment='A2', description='Zle mieszkanie', solved=False)
+    ]
+    
+    with pytest.raises(ValueError, match="Apartment key does not exist"):
+        manager.generate_apartment_events_report('NIEZNANE_MIESZKANIE')
+        
+    unsolved_events = manager.generate_apartment_events_report('A1', only_unsolved=True)
+    assert len(unsolved_events) == 1
+    assert unsolved_events[0].description == 'Kran cieknie'
+    
+    all_events = manager.generate_apartment_events_report('A1', only_unsolved=False)
+    assert len(all_events) == 2
+
+def test_get_settlement_edge_cases_coverage():
+    import pytest
+    from unittest.mock import patch
+    from src.manager import Manager
+    from src.models import Parameters, Apartment
+    
+    manager = Manager(Parameters())
+    
+    manager.apartments = {
+        'A1': Apartment(key='A1', name='Test', location='Test', area_m2=50.0, rooms={})
+    }
+    
+    with pytest.raises(ValueError, match="Month must be between 1 and 12"):
+        manager.get_settlement('A1', 2026, 13)
+        
+    assert manager.get_settlement('ZLE_MIESZKANIE', 2026, 5) is None
+    
+    with patch.object(manager, 'get_apartment_costs', return_value=None):
+        assert manager.get_settlement('A1', 2026, 5) is None 
+
+
+def test_has_any_bills_edge_cases_coverage():
+    import pytest
+    from src.manager import Manager
+    from src.models import Parameters, Apartment
+    
+    manager = Manager(Parameters())
+    
+    manager.apartments = {
+        'A1': Apartment(key='A1', name='Test', location='Test', area_m2=50.0, rooms={})
+    }
+    
+    with pytest.raises(ValueError, match="Month must be between 1 and 12"):
+        manager.has_any_bills('A1', 2026, 0) # 0 to zły miesiąc
+        
+    with pytest.raises(ValueError, match="Apartment key does not exist"):
+        manager.has_any_bills('BRAK_TAKIEGO_KLUCZA', 2026, 5)   
+
+
+def test_create_tenants_settlements_coverage():
+    import pytest
+    from src.manager import Manager
+    from src.models import Parameters, Apartment, ApartmentSettlement, Tenant
+    
+    manager = Manager(Parameters())
+    
+    manager.apartments = {
+        'A1': Apartment(key='A1', name='Test', location='Test', area_m2=50.0, rooms={})
+    }
+    
+    bad_settlement = ApartmentSettlement(key='k', apartment='A1', month=13, year=2026, total_due_pln=0.0)
+    with pytest.raises(ValueError, match="Month must be between 1 and 12"):
+        manager.create_tenants_settlements(bad_settlement)
+        
+    unknown_settlement = ApartmentSettlement(key='k', apartment='A99', month=5, year=2026, total_due_pln=0.0)
+    assert manager.create_tenants_settlements(unknown_settlement) is None
+    
+    empty_apartment_settlement = ApartmentSettlement(key='k', apartment='A1', month=5, year=2026, total_due_pln=0.0)
+    assert manager.create_tenants_settlements(empty_apartment_settlement) == []
