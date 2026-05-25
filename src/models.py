@@ -1,8 +1,6 @@
-from pydantic import BaseModel
-from typing import Dict, List
-
-import json
-
+from typing import Dict, List #Lista
+import json #Json
+from pydantic import BaseModel #Pydantic
 
 class Parameters(BaseModel):
     apartments_json_path: str = 'data/apartments.json'
@@ -16,11 +14,12 @@ class Parameters(BaseModel):
     max_refund_pln: float = 2500.0
 
 class Room(BaseModel):
+    #Pokoje
     name: str
     area_m2: float
 
-
 class Apartment(BaseModel):
+    #Apartamenty
     key: str
     name: str
     location: str
@@ -35,8 +34,8 @@ class Apartment(BaseModel):
         assert isinstance(data, dict), "Expected a dictionary of apartments"
         return {key: Apartment(**apartment) for key, apartment in data.items()}
 
-    
 class Tenant(BaseModel):
+    #Najemca
     name: str
     apartment: str
     room: str
@@ -52,7 +51,6 @@ class Tenant(BaseModel):
             data = json.load(file)
         assert isinstance(data, dict), "Expected a dictionary of tenants"
         return {key: Tenant(**tenant) for key, tenant in data.items()}
-    
 
 class TenantBlacklistEntry(BaseModel):
     tenant: str
@@ -136,3 +134,4 @@ class ApartmentEvent(BaseModel):
             data = json.load(file)
         assert isinstance(data, list), "Expected a list of apartment events"
         return [ApartmentEvent(**event) for event in data]
+    
